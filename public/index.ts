@@ -1,8 +1,13 @@
 // const graph = parse(Graph, gexf);
 
-import Sigma from 'sigma';
-import Graph from 'graphology';
-import io from 'socket.io-client';
+import { Sigma } from 'sigma';
+import * as io from 'socket.io-client';
+import AbstractGraph from 'graphology-types';
+import { random } from 'graphology-layout';
+import forceAtlas2 from 'graphology-layout-forceatlas2';
+import * as Graph from 'graphology';
+import { render } from 'graphology-canvas';
+
 
 const container = document.getElementById("sigma-container") as HTMLElement;
 const zoomInBtn = document.getElementById("zoom-in") as HTMLButtonElement;
@@ -10,12 +15,27 @@ const zoomOutBtn = document.getElementById("zoom-out") as HTMLButtonElement;
 const zoomResetBtn = document.getElementById("zoom-reset") as HTMLButtonElement;
 const labelsThresholdRange = document.getElementById("labels-threshold") as HTMLInputElement;
 
-const socket = io();
+const socket = io.io();
 
 socket.on('connection', data => {
     console.log('hello there');
-    let graph = data;
-    console.log(data)
+    // let graph: AbstractGraph = data;
+
+    let graph = new Graph.DirectedGraph();
+    graph.import(data);
+
+    random.assign(graph);
+
+    const settings = forceAtlas2.inferSettings(graph);
+    // const fa2Layout = new FA2Layout(graph, { settings: settings })
+
+    forceAtlas2.assign(graph, {
+        iterations: 50,
+        settings: settings
+    });
+
+
+    console.log(graph)
 
     const renderer = new Sigma(graph, container, {
         minCameraRatio: 0.1,
