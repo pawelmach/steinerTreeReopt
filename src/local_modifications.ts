@@ -5,6 +5,7 @@ import { buildST } from './buildST';
 import { connectedComponents } from 'graphology-components';
 import { subgraph } from 'graphology-operators';
 import { assert } from 'console';
+import { allSimplePaths } from 'graphology-simple-path';
 
 function cost(S: SteinerTree): number {
     let c = 0;
@@ -28,25 +29,50 @@ export function terminalToSteinerVertex(instance: STPInstance, ST: SteinerTree, 
     let epsilon = param / 10;
     let h = (1 + Math.ceil(1 / epsilon)) * Math.pow(2, 2 * (1 + Math.ceil(1 / epsilon) * Math.ceil(2 / param)));
 
-    let kTree: Array<NodeSet> = [];
+    let path: NodeSet = new NodeSet([t]);
 
-    let path: Set<NodeID> = new Set([t]);
-    let is_more_vertices = true;
-
-
-    while (is_more_vertices && path.size <= 1 + Math.ceil(1 / epsilon)) {
-        let neighbours = ST.filterNeighbors(t, (node, attr) => {
-            !path.has(node) && ST.degree(node) >= 3
-        })
-    }
-
+    let max_path_length = 1 + Math.ceil(1 / epsilon);
     let steiner_vertices = ST.filterNodes((node, attr) => !attr.terminal && node !== t);
+    let terminals = ST.getAttribute('R');
+
+    let possible_paths: NodeID[][] = [];
     steiner_vertices.forEach(v => {
-        allSipl
+        possible_paths.push(
+            ...allSimplePaths(ST, t, v, { maxDepth: max_path_length })
+                .filter(path => new NodeSet(path).intersection(terminals).size === 0)
+                .filter(path => path.filter(node => ST.degree(node) >= 3).length = path.length)
+        );
+    });
+
+    possible_paths.forEach(p => {
+        if (p.length > path.size) {
+            path = new NodeSet(p);
+        }
     })
 
+    // forest ST- path
+    let temp = SteinerTree.from(ST);
+    let path_array = Array.from(path);
+    for (let i = 0; i < path_array.length - 1; i++) {
+        let edge = temp.findEdge(path_array[i], path_array[i + 1], () => { }) || temp.findEdge(path_array[i + 1], path_array[i], () => { });
+        assert(edge);
+        temp.dropEdge(edge);
+    }
+    let trees_of_temp = connectedComponents(temp);
+    let forest = trees_of_temp.map(tree => new NodeSet(...tree));
+    let verts = new NodeSet(temp.nodes()).intersection(path);
 
-    let S = buildST(instance, new Set(kTree), h)
+    let Se: NodeSet[] = [];
+    verts.forEach(v => {
+        let Sv_nodes = forest.find(f => f.has(v)) || new NodeSet();
+        assert(Sv_nodes.size !== 0);
+        let Sv = subgraph(ST, Sv_nodes);
+        //fix restrivtedST span v
+        let kSv = restrictedST(instance, Sv, epsilon);
+        Se.push(...kSv);
+    })
+
+    let S = buildST(instance, new Set(Se), h);
 
     if (S && cost(ST) <= cost(S)) {
         return ST;
@@ -92,4 +118,59 @@ export function edgeCostIncrease(instance: STPInstance, ST: SteinerTree, edge: s
     return S;
 }
 
-export function edgeCostDecrease() { }
+export function edgeCostDecrease(instance: STPInstance, ST: SteinerTree, param: number) {
+    let epsilon = param / 10;
+    let h = 2 * (1 + Math.ceil(1 / epsilon)) * Math.pow(2, 2 * (2 + Math.ceil(1 / epsilon)) * Math.ceil(2 / param));
+
+    let S = ST;
+
+
+    let max_path_length = 2 * (1 + Math.ceil(1 / epsilon));
+    let steiner_vertices = ST.filterNodes((node, attr) => !attr.terminal);
+    let terminals = ST.getAttribute('R');
+
+    let Sv_graph = subgraph(ST, steiner_vertices);
+
+    // possible paths are a set of paths from given ST, whickh have up to 
+    // 2(1+ Ceil(1/epsilon)) Steiner vertices, whose degrees are >= 3
+
+    let possible_paths: NodeID[][] = [];
+    steiner_vertices.forEach(v => {
+        steiner_vertices.filter(w => v !== w).forEach(w => {
+            possible_paths.push(
+                ...allSimplePaths(Sv_graph, w, v, { maxDepth: max_path_length })
+                    .filter(path => new NodeSet(path).intersection(terminals).size === 0)
+                    .filter(path => path.filter(node => ST.degree(node) >= 3).length = path.length)
+            );
+        })
+    });
+
+    possible_paths.forEach(path => {
+        let temp = SteinerTree.from(ST);
+        for (let i = 0; i < path.length - 1; i++) {
+            let edge = temp.findEdge(path[i], path[i + 1], () => { }) || temp.findEdge(path[i + 1], path[i], () => { });
+            assert(edge);
+            temp.dropEdge(edge);
+        }
+        let trees_of_temp = connectedComponents(temp);
+        let forest = trees_of_temp.map(tree => new NodeSet(...tree));
+        let verts = new NodeSet(temp.nodes()).intersection(new NodeSet(path));
+
+        let Se: NodeSet[] = [];
+        verts.forEach(v => {
+            let Sv_nodes = forest.find(f => f.has(v)) || new NodeSet();
+            assert(Sv_nodes.size !== 0);
+            let Sv = subgraph(ST, Sv_nodes);
+            //fix restrivtedST span v
+            let kSv = restrictedST(instance, Sv, epsilon);
+            Se.push(...kSv);
+        })
+
+        let S_prim = buildST(instance, new Set(Se), h);
+        if (S_prim && cost(S_prim) <= cost(S)) {
+            S = S_prim;
+        }
+    });
+
+    return S;
+}

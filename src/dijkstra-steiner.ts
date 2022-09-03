@@ -53,10 +53,6 @@ class NodeLabel {
     }
 }
 
-////////////////////////////////////////
-//////////// MAYBE KEEP LABELS AS SETS becouse of comparison
-////////////// use LODASH
-
 function mst_cost(graph: JsGraphs.WeightedGraph): number {
     let prim = new LazyPrimMST(graph);
     let mst = prim.mst;

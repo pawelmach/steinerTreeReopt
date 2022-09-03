@@ -73,36 +73,10 @@ export class Label extends Set<number> {
 
 export class SteinerTree extends UndirectedGraph<NodeAttributes, EdgeAttributes, GraphAttributes> {
     constructor() { super() }
-
-    // addTerminalNode(node: NodeID) {
-    //     super.addNode(node, { terminal: true });
-    //     super.updateAttribute('R', value => value?.add(node) || new NodeSet([node]))
-    // }
-
-    // addSteinerNode(node: NodeID) {
-    //     super.addNode(node, { terminal: false });
-    // }
-
-    // addWeightedEdge(source: NodeID, target: NodeID, weight: number) {
-    //     super.addEdge(source, target, { weight: weight });
-    // }
 }
 
 export default class STPInstance extends UndirectedGraph<NodeAttributes, EdgeAttributes, STPGraphAttributes> {
     constructor() { super() }
-
-    // addTerminalNode(node: NodeID) {
-    //     this.addNode(node, { terminal: true });
-    //     this.updateAttribute('R', value => value?.add(node) || new NodeSet([node]))
-    // }
-
-    // addSteinerNode(node: NodeID) {
-    //     this.addNode(node, { terminal: false });
-    // }
-
-    // addWeightedEdge(source: NodeID, target: NodeID, weight: number) {
-    //     this.addEdge(source, target, { weight: weight });
-    // }
 }
 
 class FullComponent {

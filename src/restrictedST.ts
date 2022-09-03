@@ -5,8 +5,7 @@ import { subgraph } from 'graphology-operators';
 import { assert } from 'console';
 import betweennessCentrality from 'graphology-metrics/centrality/betweenness';
 import Heap from 'heap';
-import { bfs, bfsFromNode, dfsFromNode } from 'graphology-traversal';
-import { UndirectedGraph } from 'graphology';
+import { bfsFromNode, dfsFromNode } from 'graphology-traversal';
 import { Label } from './STPInstance';
 import { KRestrictedST } from './STPInstance';
 
