@@ -4,6 +4,7 @@ import { dijkstra } from 'graphology-shortest-path';
 import 'jest';
 import JsGraph from 'js-graph-algorithms';
 import STPInstance from '../src/STPInstance';
+import * as opt_b from './data/opt_b_set.json';
 
 
 let graph = new JsGraph.WeightedGraph(8)
@@ -57,3 +58,4 @@ describe('Dijkstra-Steiner', () => {
         assert(true);
     })
 })
+

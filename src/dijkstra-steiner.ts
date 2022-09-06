@@ -2,8 +2,10 @@ import { subgraph } from 'graphology-operators';
 import dijkstra from 'graphology-shortest-path';
 import Heap from 'heap';
 import { WeightedGraph, LazyPrimMST } from "js-graph-algorithms";
-import { NodeID } from './STPInstance';
+import { NodeID, NodeSet } from './STPInstance';
 import STPInstance from './STPInstance';
+import { assert } from 'console';
+import * as JsGraphs from 'js-graph-algorithms';
 
 
 interface Edge {
@@ -11,34 +13,16 @@ interface Edge {
     target: NodeID
 }
 
-class Label extends Set<NodeID> {
-    union(b: Label): Label {
-        return new Label([...this, ...b]);
-    }
-
-    intersection(b: Label) {
-        return new Label([...this].filter(x => b.has(x)));
-    }
-
-    equals(b: Label): boolean {
-        return this.diffrence(b).size === 0
-    }
-
-    diffrence(b: Label): Label {
-        return new Label([...this].filter(x => !b.has(x)));
-    }
-}
-
 class NodeLabel {
     node: NodeID;
-    label: Label;
+    label: NodeSet;
     l: number;
     b: Set<NodeLabel>;
     lower_bound: number = -1;
     is_to_itself: boolean = false;
     is_empty: boolean = false;
 
-    constructor(node: NodeID, label: Label) {
+    constructor(node: NodeID, label: NodeSet) {
         this.node = node;
         this.label = label;
         this.b = new Set();
@@ -63,16 +47,29 @@ function mst_cost(graph: JsGraphs.WeightedGraph): number {
 
 function convertToJSGraph(graph: STPInstance): JsGraphs.WeightedGraph {
     let nodes_no: number = graph.nodes().length;
+    let node_map: Map<string, number> = new Map();
+    let i = 0;
+    graph.forEachNode(node => {
+        node_map.set(node, i);
+        i++;
+    });
+
+    // console.log(graph)
 
     let new_graph: JsGraphs.WeightedGraph = new WeightedGraph(nodes_no);
+    // console.log(new_graph)
     graph.forEachEdge((edge, attr, source, target) => {
         // maybe problem with source target are strings
+
+        let s = node_map.get(source) || 0;
+        let t = node_map.get(target) || 0;
         new_graph.addEdge(
             new JsGraphs.Edge(
-                Number.parseInt(source),
-                Number.parseInt(target),
+                s,
+                t,
                 attr.weight
-            ));
+            )
+        );
     });
 
     return new_graph;
@@ -107,7 +104,6 @@ class ShortestPath {
         return result;
     }
 }
-
 
 function generateLabels(nodes: Array<NodeID>) {
 
@@ -149,7 +145,7 @@ function generateLabels(nodes: Array<NodeID>) {
         }
     }
     combs.push([])
-    return combs.map(comb => new Label(comb));
+    return combs.map(comb => new NodeSet(comb));
 }
 
 function calculate_lower_bound(graph: STPInstance, v: NodeID, nodes: NodeID[], paths: Map<NodeID, Map<NodeID, { path: NodeID[], cost: number }>>): number {
@@ -176,34 +172,47 @@ function calculate_lower_bound(graph: STPInstance, v: NodeID, nodes: NodeID[], p
 
 }
 
-export function DijkstraSteiner(graph: STPInstance, terminals: NodeID[], root_terminal: NodeID) {
+export function DijkstraSteiner(graph: STPInstance, terminals?: NodeID[], root_terminal?: NodeID) {
 
     // Helper function - backtrack
-    function backtrack(vi: NodeLabel): Label {
+    function backtrack(vi: NodeLabel): NodeSet {
+        // console.log(vi)
         if (vi.b.size === 1) {
-            let edge = graph.edge(vi.node, vi.b[0].node) || '';
-            // watchout here bro maybe edge will be split into letters or it will be null
-            return new Label([edge]).union(backtrack(vi.b[0]));
-        } else {
-            return new Label(backtrack(vi.b[0])).union(backtrack(vi.b[1]));
+            let edge = graph.edge(vi.node, Array.from(vi.b)[0].node) || graph.edge(Array.from(vi.b)[0].node, vi.node) || '';
+            if (edge === '') throw new Error('edge not found')
+            let source = graph.source(edge);
+            let target = graph.source(edge);
+            return new NodeSet([source, target]).union(backtrack([...vi.b.values()][0]));
+        } else if (vi.b.size === 1) {
+            return new NodeSet(backtrack(Array.from(vi.b)[0])).union(backtrack(Array.from(vi.b)[1]));
         }
+        return new NodeSet();
     }
 
-    let source_terminals = new Label(terminals);
-    let source_terminals_with_root = new Label(source_terminals);
+    if (!terminals) {
+        terminals = Array.from(graph.getAttribute('R'));
+    }
+    if (!root_terminal) {
+        root_terminal = terminals[0];
+    }
+
+    assert(terminals.length !== 0);
+
+    let source_terminals = new NodeSet(terminals);
+    let source_terminals_with_root = new NodeSet(source_terminals);
     source_terminals.delete(root_terminal);
 
     let fin_VI: NodeLabel;
 
     let PERM: Set<NodeLabel>;
-    let NOT_PERM: Heap<NodeLabel> = new Heap((a, b) => (a.l + a.lower_bound) - (b.l + b.lower_bound))
+    let NOT_PERM: Heap<NodeLabel> = new Heap((a, b) => (a.l + a.lower_bound) - (b.l + b.lower_bound));
 
     // generate all labels
-    let labels: Array<Label> = generateLabels(Array.from(source_terminals));
+    let labels: Array<NodeSet> = generateLabels(Array.from(source_terminals));
     // maybe Map<NodeID, Array<NodeLabel>>
-    // or Map<NodeID, Map<Label, NodeLabel>>
+    // or Map<NodeID, Map<NodeSet, NodeLabel>>
     // let VI_sets: Array<NodeLabel> = [];
-    let VI_Map: Map<NodeID, Map<Label, NodeLabel>> = new Map();
+    let VI_Map: Map<NodeID, Map<NodeSet, NodeLabel>> = new Map();
     let Node_Labels: Array<NodeLabel> = [];
 
     // create Node Labels for each vertex
@@ -226,10 +235,13 @@ export function DijkstraSteiner(graph: STPInstance, terminals: NodeID[], root_te
         })
     })
 
-    let full_label = labels.find(l => l.size === source_terminals.size) || new Label(['error']);
-    if (full_label[0] === 'error') throw new Error('undefined value when trying to find full label');
-    fin_VI = VI_Map.get(root_terminal)?.get(full_label) || new NodeLabel('error', new Label());
-    if (fin_VI.node === 'error') throw new Error('undefined value when trying to get final Node Label');
+    let full_label = labels.find(l => l.size === source_terminals.size) || new NodeSet(['error']);
+    if (Array.from(full_label)[0] === 'error') throw new Error('undefined value when trying to find full label');
+
+    fin_VI = Node_Labels.find(v => v.node === root_terminal && full_label.equals(v.label)) || new NodeLabel('error', new NodeSet());
+    if (fin_VI.node === 'error') throw new Error('undefined value when trying to get final Node NodeSet');
+
+    console.log(fin_VI)
 
     // keep shortest path as Map<source, Map<target, {path, cost}>>
     // let shortest_paths: Array<ShortestPath> = [];
@@ -244,7 +256,7 @@ export function DijkstraSteiner(graph: STPInstance, terminals: NodeID[], root_te
 
         let paths = dijkstra.singleSource(graph, source);
 
-        paths.keys.forEach(target => {
+        Object.keys(paths).forEach((target: string) => {
             if (source != target) {
                 let cost: number = 0;
                 let edges = ShortestPath.edges(paths[target]);
@@ -266,7 +278,6 @@ export function DijkstraSteiner(graph: STPInstance, terminals: NodeID[], root_te
     // populate P Set
     PERM = new Set(Node_Labels.filter(vi => vi.is_empty));
 
-
     // populate N heap
     Node_Labels
         .filter(vi => vi.is_to_itself && source_terminals.has(vi.node))
@@ -281,8 +292,8 @@ export function DijkstraSteiner(graph: STPInstance, terminals: NodeID[], root_te
             NOT_PERM.push(vi);
         });
 
-
-
+    // console.log(NOT_PERM)
+    // let i = 0
     // main loop
     while (!PERM.has(fin_VI)) {
 
@@ -290,18 +301,23 @@ export function DijkstraSteiner(graph: STPInstance, terminals: NodeID[], root_te
         // for now jest pick lowest cost label and calculate its lower bound
         // NON PERM is a heap minimazing, first value has the lowest l + L
 
-        let vi = NOT_PERM.pop() || new NodeLabel('error', new Label());
+        let vi = NOT_PERM.pop() || new NodeLabel('error', new NodeSet());
         if (vi.node === 'error') throw new Error('undefined value poped from Non permament heap');
+
+        if (vi.node === fin_VI.node && vi.label.equals(fin_VI.label)) console.log('DUPA')
+        // console.log(NOT_PERM.size());
 
         PERM.add(vi);
         let v = vi.node;
 
         graph.forEachNeighbor(v, (neighbor) => {
-            let edge = graph.edge(v, neighbor);
+            let edge = graph.edge(v, neighbor) || graph.edge(neighbor, v);
             let edge_cost = graph.getEdgeAttribute(edge, 'weight');
 
-            let wi = VI_Map.get(neighbor)?.get(vi.label) || new NodeLabel('error', new Label());
-            if (wi.node = 'error') throw new Error('undefined value when getting node label from a map');
+            let wi = VI_Map.get(neighbor)?.get(vi.label) || new NodeLabel('error', new NodeSet());
+            if (wi.node === 'error') throw new Error('undefined value when getting node label from a map');
+
+            if (wi.node === fin_VI.node && wi.label.equals(fin_VI.label)) console.log('DUPA')
 
             if (vi.l + edge_cost < wi.l && !PERM.has(wi)) {
                 wi.l = vi.l + edge_cost;
@@ -311,24 +327,27 @@ export function DijkstraSteiner(graph: STPInstance, terminals: NodeID[], root_te
             }
         })
 
-        let possible_labels: Array<Label> = generateLabels([...source_terminals.diffrence(vi.label)]);
+        let possible_labels: Array<NodeSet> = generateLabels([...source_terminals.diffrence(vi.label)]);
 
         PERM.forEach(vj => {
-            if (vj.node !== v) return;
+            if (vj.node === v) {
 
-            let j_label = possible_labels.find(label => label.equals(vj.label));
-            if (j_label) {
-                let IJ_label = vj.label.union(vi.label);
+                let j_label = possible_labels.find(label => label.equals(vj.label));
+                if (j_label) {
+                    let IJ_label = labels.find(label => label.intersection(vj.label.union(vi.label)).size === 0);
+                    if (!IJ_label) throw new Error('whoopsie again');
 
-                let v_ij = VI_Map.get(v)?.get(IJ_label) || new NodeLabel('error', new Label());
-                if (v_ij.node === 'error') throw new Error('undefined value when getting node label from a map');
+                    let v_ij = VI_Map.get(v)?.get(IJ_label) || new NodeLabel('error', new NodeSet());
+                    if (v_ij.node === 'error') throw new Error('undefined value when getting node label from a map');
 
-                if (vi.l + vj.l < v_ij.l && !PERM.has(v_ij)) {
-                    v_ij.l = vi.l + vj.l;
-                    v_ij.b.add(vi);
-                    v_ij.b.add(vj);
-                    v_ij.lower_bound = calculate_lower_bound(graph, v, Array.from(v_ij.label), shortest_paths);
-                    NOT_PERM.push(v_ij);
+
+                    if (vi.l + vj.l < v_ij.l && !PERM.has(v_ij)) {
+                        v_ij.l = vi.l + vj.l;
+                        v_ij.b.add(vi);
+                        v_ij.b.add(vj);
+                        v_ij.lower_bound = calculate_lower_bound(graph, v, Array.from(v_ij.label), shortest_paths);
+                        NOT_PERM.push(v_ij);
+                    }
                 }
             }
         })

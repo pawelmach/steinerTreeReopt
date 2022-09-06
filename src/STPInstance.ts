@@ -14,13 +14,14 @@ type EdgeAttributes = {
 
 type STPGraphAttributes = {
     name?: string;
-    R: NodeSet
-    steinerTree: SteinerTree
+    R: NodeSet;
+    OPT: number;
 }
 
 type GraphAttributes = {
     name?: string;
     R: NodeSet;
+    OPT?: number;
 }
 
 export class KRestrictedST {
@@ -33,6 +34,14 @@ export class KRestrictedST {
     }
 }
 
+export function STcost(S: SteinerTree): number {
+    let c = 0;
+    S.forEachEdge((edge, attr) => {
+        c += attr.weight;
+    })
+    return c;
+}
+
 export class NodeSet extends Set<NodeID> {
     union(b: NodeSet): NodeSet {
         return new NodeSet([...this, ...b]);
@@ -43,11 +52,21 @@ export class NodeSet extends Set<NodeID> {
     }
 
     equals(b: NodeSet): boolean {
-        return this.diffrence(b).size === 0;
+        if (this.size !== b.size) {
+            return false;
+        }
+
+        return Array.from(this).every(element => {
+            return b.has(element);
+        });
     }
 
     diffrence(b: NodeSet): NodeSet {
         return new NodeSet([...this].filter(x => !b.has(x)));
+    }
+
+    pick(): NodeID {
+        return Array.from(this.values())[0];
     }
 }
 
@@ -77,11 +96,4 @@ export class SteinerTree extends UndirectedGraph<NodeAttributes, EdgeAttributes,
 
 export default class STPInstance extends UndirectedGraph<NodeAttributes, EdgeAttributes, STPGraphAttributes> {
     constructor() { super() }
-}
-
-class FullComponent {
-    nodes: NodeSet = new NodeSet()
-    k: number = 0
-    weight: number = 0
-
 }

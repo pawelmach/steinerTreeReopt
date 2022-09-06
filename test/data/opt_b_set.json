@@ -1,0 +1,74 @@
+[
+    {
+        "test_case": "b01",
+        "opt": 82
+    },
+    {
+        "test_case": "b02",
+        "opt": 83
+    },
+    {
+        "test_case": "b03",
+        "opt": 138
+    },
+    {
+        "test_case": "b04",
+        "opt": 59
+    },
+    {
+        "test_case": "b05",
+        "opt": 61
+    },
+    {
+        "test_case": "b06",
+        "opt": 122
+    },
+    {
+        "test_case": "b07",
+        "opt": 111
+    },
+    {
+        "test_case": "b08",
+        "opt": 104
+    },
+    {
+        "test_case": "b09",
+        "opt": 220
+    },
+    {
+        "test_case": "b10",
+        "opt": 86
+    },
+    {
+        "test_case": "b11",
+        "opt": 88
+    },
+    {
+        "test_case": "b12",
+        "opt": 174
+    },
+    {
+        "test_case": "b13",
+        "opt": 165
+    },
+    {
+        "test_case": "b14",
+        "opt": 235
+    },
+    {
+        "test_case": "b15",
+        "opt": 318
+    },
+    {
+        "test_case": "b16",
+        "opt": 127
+    },
+    {
+        "test_case": "b17",
+        "opt": 131
+    },
+    {
+        "test_case": "b18",
+        "opt": 218
+    }
+]
