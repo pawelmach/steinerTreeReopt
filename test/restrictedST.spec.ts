@@ -8,8 +8,6 @@ import { bfsFromNode, dfsFromNode } from 'graphology-traversal';
 import Heap from 'heap';
 import restrictedST from '../src/restrictedST';
 
-
-
 describe('Steiner Into Binary', () => {
 
     let st = new SteinerTree();
