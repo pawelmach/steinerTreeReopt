@@ -3,6 +3,7 @@ import { SteinerTree, NodeSet, NodeID } from './STPInstance';
 import { assert } from 'console';
 import { DijkstraSteiner } from './dijkstra-steiner';
 import { subgraph } from 'graphology-operators';
+import dreyfusWagner from './dreyfus-wagner';
 
 export default function Connect(graph: STPInstance, F: Array<NodeSet>) {
 
@@ -59,7 +60,9 @@ export default function Connect(graph: STPInstance, F: Array<NodeSet>) {
         terminals = Array.from(graph.getAttribute('R'));
     }
 
-    let ST_nodes = Array.from(DijkstraSteiner(instance, terminals, terminals[0]));
+    instance.setAttribute('R', terminals);
+    let reduced_ST = dreyfusWagner(instance);
+    let ST_nodes = reduced_ST.nodes();
 
     let new_instance = subgraph(instance, ST_nodes);
     let result_edges = new_instance.edges();

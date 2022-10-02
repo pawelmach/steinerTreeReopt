@@ -21,7 +21,7 @@ function highestPowerOf2(n: number): number {
     return res;
 }
 
-function* gen_labels(from, to, step = 1, multiplier = 1) {
+function* gen_labels(from: number, to: number, step = 1, multiplier = 1) {
     for (let i = from; i <= to; i += step) yield i * multiplier === 0 ? i : i * multiplier;
 }
 
@@ -41,7 +41,7 @@ function findAncestorOnDepth(tree: SteinerTree, node: NodeID, dest_depth: number
 export function SteinerToRegularBinaryTree(S: SteinerTree): [SteinerTree, NodeID | undefined] {
     let terminals = S.getAttribute('R');
     let vertices = new NodeSet(S.nodes());
-    let steiner_vertices = vertices.diffrence(terminals);
+    let steiner_vertices = vertices.diffrence(new NodeSet(terminals));
 
     let binaryTree = SteinerTree.from(S);
 
@@ -51,6 +51,8 @@ export function SteinerToRegularBinaryTree(S: SteinerTree): [SteinerTree, NodeID
     let root: NodeID | undefined;
 
     let ST_vert_to_change = Array.from(steiner_vertices).filter(v => S.degree(v) > 3);
+
+
 
     while (ST_vert_to_change.length > 0) {
         let v = ST_vert_to_change.pop();
@@ -128,8 +130,8 @@ export function SteinerToRegularBinaryTree(S: SteinerTree): [SteinerTree, NodeID
     let n1 = centralitiesMap.pop()?.node;
     let n2 = centralitiesMap.pop()?.node;
 
-    console.log(n1)
-    console.log(n2)
+    // console.log(n1)
+    // console.log(n2)
     assert(n1);
     assert(n2);
 
@@ -156,6 +158,10 @@ export default function restrictedST(I: STPInstance, ST: SteinerTree, epsilon: n
     let r = highestPowerOf2(k);
     let s = k - Math.pow(2, r);
 
+    if (ST.getAttribute('R').length <= k) {
+        return [new NodeSet(ST.nodes())]
+    }
+
     // check if steiner tree is a full steiner tree, i.e. all terminals are leaves
     // if not split the tree at terminals that are not trees i.e. degree > 1
     // and call restrictedST on these splitted components then combine results
@@ -166,15 +172,17 @@ export default function restrictedST(I: STPInstance, ST: SteinerTree, epsilon: n
     let split_terminal = ST.findNode((node, attr) => attr.terminal && ST.degree(node) > 1);
 
     if (split_terminal) {
+        // console.log(split_terminal)
         let edges = ST.edges(split_terminal);
         let temp = SteinerTree.from(ST);
 
         // still worry about neighbouring terminals that would create a component
 
         // Drop all the edges beside one to get a subgraphs
-        for (let i = 1; i < edges.length; i++) {
-            temp.dropEdge(edges[i]);
-        }
+        // for (let i = 1; i < edges.length; i++) {
+        //     temp.dropEdge(edges[i]);
+        // }
+        temp.dropEdge(edges[1]);
 
         let Stree1: SteinerTree;
         let Stree2: SteinerTree;
@@ -189,6 +197,10 @@ export default function restrictedST(I: STPInstance, ST: SteinerTree, epsilon: n
             Stree2 = subgraph(ST, [...connected_comp[0], split_terminal]);
         }
 
+        Stree1.setAttribute('R', [...Stree1.nodeEntries()].filter(node => node.attributes.terminal).map(node => node.node));
+        Stree2.setAttribute('R', [...Stree2.nodeEntries()].filter(node => node.attributes.terminal).map(node => node.node));
+
+
         return [...restrictedST(I, Stree1, epsilon), ...restrictedST(I, Stree2, epsilon)]
     }
 
@@ -201,7 +213,7 @@ export default function restrictedST(I: STPInstance, ST: SteinerTree, epsilon: n
 
     let neighbour_depth: number = 0;
     let j: number = 0;
-    let full_label = new Label(...gen_labels(1, r * Math.pow(2, r) + s))
+    let full_label = new Label(...[gen_labels(1, r * Math.pow(2, r) + s)])
 
     bfsFromNode(binary_tree, root, (key, attr, depth) => {
 
@@ -215,9 +227,9 @@ export default function restrictedST(I: STPInstance, ST: SteinerTree, epsilon: n
         attr.depth = depth;
 
         if (depth == 0) {
-            attr.label = new Label(...gen_labels(1, Math.pow(2, r)));
+            attr.label = new Label(...[gen_labels(1, Math.pow(2, r))]);
         } else if (depth < r) {
-            attr.label = new Label(...gen_labels(1, Math.pow(2, r), 1, depth * Math.pow(2, r)))
+            attr.label = new Label(...[gen_labels(1, Math.pow(2, r), 1, depth * Math.pow(2, r))])
         } else {
 
             // Rule 1
@@ -237,7 +249,7 @@ export default function restrictedST(I: STPInstance, ST: SteinerTree, epsilon: n
             attr.label = new Label();
 
             for (let i = 0; i < Math.pow(2, r) - s; i++) {
-                let l = ancestor_label[(j + i) % Math.pow(2, r)];
+                let l = ancestor_label.get((j + i) % Math.pow(2, r));
                 attr.label.add(l)
             }
 
@@ -269,7 +281,7 @@ export default function restrictedST(I: STPInstance, ST: SteinerTree, epsilon: n
     // filter out the temporary nodes out of component
 
     let ktrees: Heap<KRestrictedST> = new Heap((a: KRestrictedST, b: KRestrictedST) => a.total_weight - b.total_weight);
-    let terminals = binary_tree.getAttribute('R');
+    let terminals = new NodeSet(binary_tree.getAttribute('R'));
 
     //for each label l
     for (let l = 1; l <= full_label.size; l++) {
@@ -305,13 +317,18 @@ export default function restrictedST(I: STPInstance, ST: SteinerTree, epsilon: n
         })
 
         let total_weight: number = 0;
-
+        // console.log(JSON.stringify(binary_tree));
+        // console.log(k)
         intermidiate_leaves.forEach(node => {
             let weight: number = 0;
             dfsFromNode(binary_tree, node, (key, attr, depth) => {
-                if (attr.depth && attr.depth <= depth) {
-                    if (!attr.terminal) {
+                if (attr.depth && attr.depth <= (binary_tree.getNodeAttribute(node, 'depth') || 0) + depth) {
+                    if (!attr.terminal && node != key) {
+                        let temp = binary_tree.edge(node, key) || binary_tree.edge(key, node);
+
+                        // let edge_w = binary_tree.getEdgeAttribute(temp, 'weight');
                         let edge_w = binary_tree.getEdgeAttribute(node, key, 'weight');
+
                         weight += edge_w;
                     } else {
                         total_weight += weight;

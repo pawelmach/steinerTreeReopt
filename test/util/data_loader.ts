@@ -60,7 +60,7 @@ export default async function Read_Graph(file_name: string): Promise<STPInstance
         await events.once(rl, 'close');
 
         instance.setAttribute('name', name + author);
-        instance.setAttribute('R', new NodeSet(terminals));
+        instance.setAttribute('R', terminals);
 
         assert(terminals.length !== 0);
 

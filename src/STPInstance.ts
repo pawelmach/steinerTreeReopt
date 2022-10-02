@@ -14,13 +14,13 @@ type EdgeAttributes = {
 
 type STPGraphAttributes = {
     name?: string;
-    R: NodeSet;
+    R: string[];
     OPT: number;
 }
 
 type GraphAttributes = {
     name?: string;
-    R: NodeSet;
+    R: string[];
     OPT?: number;
 }
 
@@ -71,7 +71,6 @@ export class NodeSet extends Set<NodeID> {
 }
 
 export class Label extends Set<number> {
-    constructor(...args: any[]) { super(...args) }
 
     union(b: Label): Label {
         return new Label([...this, ...b]);
@@ -87,6 +86,10 @@ export class Label extends Set<number> {
 
     diffrence(b: Label): Label {
         return new Label([...this].filter(x => !b.has(x)));
+    }
+
+    get(i: number): number {
+        return Array.from(this)[i];
     }
 }
 

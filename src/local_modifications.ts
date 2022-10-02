@@ -19,7 +19,7 @@ export function steinerVertexToTerminal(instance: STPInstance, n_instance: STPIn
     let epsilon = param / 10;
     let h = Math.pow(2, 2 * Math.ceil(2 / param) * Math.ceil(1 / epsilon));
 
-    // maybe n_instance in restricted
+
     let S_epsilon = restrictedST(instance, ST, epsilon);
     let S = buildST(n_instance, new Set([...S_epsilon, new NodeSet([t])]), h)
     return S;
@@ -39,7 +39,7 @@ export function terminalToSteinerVertex(instance: STPInstance, ST: SteinerTree, 
     steiner_vertices.forEach(v => {
         possible_paths.push(
             ...allSimplePaths(ST, t, v, { maxDepth: max_path_length })
-                .filter(path => new NodeSet(path).intersection(terminals).size === 0)
+                .filter(path => new NodeSet(path).intersection(new NodeSet(terminals)).size === 0)
                 .filter(path => path.filter(node => ST.degree(node) >= 3).length = path.length)
         );
     });
@@ -67,7 +67,6 @@ export function terminalToSteinerVertex(instance: STPInstance, ST: SteinerTree, 
         let Sv_nodes = forest.find(f => f.has(v)) || new NodeSet();
         assert(Sv_nodes.size !== 0);
         let Sv = subgraph(ST, Sv_nodes);
-        //fix restrivtedST span v
         let kSv = restrictedST(instance, Sv, epsilon);
         Se.push(...kSv);
     })
@@ -100,10 +99,9 @@ export function edgeCostIncrease(instance: STPInstance, ST: SteinerTree, edge: s
         let instance2 = STPInstance.from(instance);
         instance1.dropEdge(edge);
         instance2.dropEdge(edge);
-        instance1.setAttribute('R', instance1.getAttribute('R').intersection(new NodeSet(Stree1.nodes())));
-        instance2.setAttribute('R', instance2.getAttribute('R').intersection(new NodeSet(Stree2.nodes())));
+        instance1.setAttribute('R', Array.from(new NodeSet(instance1.getAttribute('R')).intersection(new NodeSet(Stree1.nodes()))));
+        instance2.setAttribute('R', Array.from(new NodeSet(instance2.getAttribute('R')).intersection(new NodeSet(Stree2.nodes()))));
 
-        //change restrictedST to include u node from changing edge
         let kTree1 = restrictedST(instance1, Stree1, epsilon);
         let kTree2 = restrictedST(instance2, Stree2, epsilon);
 
@@ -139,7 +137,7 @@ export function edgeCostDecrease(instance: STPInstance, ST: SteinerTree, param: 
         steiner_vertices.filter(w => v !== w).forEach(w => {
             possible_paths.push(
                 ...allSimplePaths(Sv_graph, w, v, { maxDepth: max_path_length })
-                    .filter(path => new NodeSet(path).intersection(terminals).size === 0)
+                    .filter(path => new NodeSet(path).intersection(new NodeSet(terminals)).size === 0)
                     .filter(path => path.filter(node => ST.degree(node) >= 3).length = path.length)
             );
         })
@@ -161,7 +159,6 @@ export function edgeCostDecrease(instance: STPInstance, ST: SteinerTree, param: 
             let Sv_nodes = forest.find(f => f.has(v)) || new NodeSet();
             assert(Sv_nodes.size !== 0);
             let Sv = subgraph(ST, Sv_nodes);
-            //fix restrivtedST span v
             let kSv = restrictedST(instance, Sv, epsilon);
             Se.push(...kSv);
         })

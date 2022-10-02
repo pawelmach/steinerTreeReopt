@@ -1,5 +1,7 @@
 import { dijkstra } from 'graphology-shortest-path';
-import STPInstance, { NodeID, NodeSet } from './STPInstance';
+import STPInstance, { NodeID, NodeSet, SteinerTree } from './STPInstance';
+import { subgraph } from 'graphology-operators';
+import { bfs, bfsFromNode } from 'graphology-traversal';
 
 class Path {
     nodes: NodeID[]
@@ -59,16 +61,10 @@ function ns_id(set: NodeSet | NodeID) {
     return Array.from(set).sort().reduce((p, c) => p + c + ' ', '');
 }
 
-export default function dreyfusWagner(instance: STPInstance): [string[], number] {
+export default function dreyfusWagner(instance: STPInstance): SteinerTree {
 
     let V: NodeID[] = instance.nodes();
     let Tm: NodeID[] = Array.from(instance.getAttribute('R'))
-
-    // generate terminal subsets
-    // let TSets: Map<NodeSetID, NodeSet> = new Map();
-    // generateSubsets(Tm).forEach(tset => {
-    //     TSets.set(ns_id(tset), tset);
-    // })
 
     let M: Map<MID, MST> = new Map();
     let Paths: Map<PathID, Path> = new Map();
@@ -90,25 +86,6 @@ export default function dreyfusWagner(instance: STPInstance): [string[], number]
             Paths.set(path_id(v, w), new Path(path, edges, cost));
         }
     }
-
-    // for (let v of V) {
-    //     let temp = dijkstra.singleSource(instance, v);
-
-    //     Object.keys(temp).forEach((target: string) => {
-    //         let cost: number = 0;
-    //         let edges: string[] = [];
-    //         let path = temp[target];
-
-    //         for (let i = 0; i < path.length - 1; i++) {
-    //             let edge = instance.edge(path[i], path[i + 1]) || instance.edge(path[i + 1], path[i]) || 'error';
-    //             if (edge === 'error') throw new Error('error edge problem');
-    //             edges.push(edge);
-    //             cost += instance.getEdgeAttribute(edge, 'weight');
-    //         }
-
-    //         Paths.set(path_id(v, target), new Path(path, edges, cost));
-    //     })
-    // }
 
     function UpdateValueofMST(g: STPInstance, q: NodeID, T: NodeSet) {
 
@@ -197,7 +174,28 @@ export default function dreyfusWagner(instance: STPInstance): [string[], number]
     }
 
     // console.log(M)
-    return [result.edges, result.cost];
+
+    let ST = new SteinerTree();
+
+    let nodes: NodeID[] = [];
+    result.edges.forEach(edge => {
+        let s = instance.source(edge);
+        let t = instance.target(edge);
+        nodes.push(s);
+        nodes.push(t);
+    })
+
+    ST = subgraph(instance, nodes);
+    ST = SteinerTree.from(ST);
+    ST.setAttribute('OPT', result.cost);
+
+    let edges = new Set(result.edges);
+    let to_remove: string[] = ST.edges().filter(e => !edges.has(e));
+    to_remove.forEach(e => {
+        ST.dropEdge(e);
+    })
+    ST.setAttribute('R', Tm);
+    return ST;
 
 }
 
